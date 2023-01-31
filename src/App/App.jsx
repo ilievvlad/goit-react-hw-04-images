@@ -1,4 +1,4 @@
-import { Component } from "react";
+import { useState, useEffect } from 'react';
 
 import { ImageGallery } from "Components/ImageGallery/ImageGallery";
 import { Searchbar } from "Components/Searchbar/Searchbar"
@@ -8,94 +8,81 @@ import { Loader } from "Components/Loader/Loader";
 
 import { getImages } from "Services/imgApi.js";
 
-export class App extends Component {
-	state = {
-		images: [],
-		search: '',
-		page: 1,
-		status: 'idle',
-		showModal: false,
-		currentImage: null
+export const App = () => {
+	const [images, setImages] = useState([]);
+	const [search, setSearch] = useState('');
+	const [page, setPage] = useState(1);
+	const [status, setStatus] = useState('idle');
+	const [showModal, setShowModal] = useState(false);
+	const [currentImage, setCurrentImage] = useState(null);
+
+	const handleSearch = value => {
+		setImages([]);
+		setSearch(value);
+		setPage(1);
 	}
 
-	componentDidUpdate(_, prevState) {
-		const { search, page } = this.state;
-
-		if (prevState.search !== search || prevState.page !== page) {
-			if (this.state.search !== '') {
-				this.fetchData(search, page);
+	useEffect(() => {
+		const images = async (search = '', page = 1) => {
+			setStatus('loading');
+			try {
+				const data = await getImages(search, page);
+				onResolve(data);
+			} catch (error) {
+				console.log(error);
+				setStatus('error');
 			}
-		}
+		};
+
+		const onResolve = ({ hits, totalHits }) => {
+			const newImages = hits.map(
+				({ id, webformatURL, tags, largeImageURL }) => ({
+					id, webformatURL, tags, largeImageURL,
+				})
+			);
+
+			if (totalHits < page * 12) {
+				setImages(images => [...images, ...newImages]);
+				setStatus('idle');
+				alert('No results.')
+				return;
+			}
+			setImages(images => [...images, ...newImages]);
+			setStatus('success');
+		};
+
+		if (search === '') return;
+		images(search, page);
+	}, [search, page]);
+
+	const handleToggleModal = () => {
+		setShowModal(!showModal);
 	}
 
-	handleSearch = value => {
-		this.setState({ images: [], search: value, page: 1 });
+	const handleClickImg = img => {
+		handleToggleModal();
+		setCurrentImage(img);
 	}
 
-	fetchData = async (search = '', page = 1) => {
-		this.setState({ status: 'loading' });
-		try {
-			const data = await getImages(search, page);
-			this.onResolve(data);
-		} catch (error) {
-			console.log(error);
-			this.setState({ status: 'error' });
-		}
+	const handleClickLoadMoreBtn = () => {
+		setPage(state => state + 1);
 	};
 
-	onResolve({ hits, totalHits }) {
-		if (totalHits < this.state.page * 12) {
-			this.setState(({ images }) => ({
-				images: [...images, ...newImages],
-				status: 'idle',
-			}));
-			alert('No results.')
-			return;
-		}
+	return (
+		<div className="wrapper" >
+			<Searchbar onSubmit={handleSearch} />
 
-		const newImages = hits.map(({ id, webformatURL, tags, largeImageURL }) => ({
-			id, webformatURL, tags, largeImageURL
-		}));
-		this.setState(({ images }) => ({
-			images: [...images, ...newImages],
-			status: 'success'
-		}));
-	}
+			{images.length > 0 && (
+				<ImageGallery onClick={handleClickImg} images={images} />
+			)}
 
-	handleToggleModal = () => {
-		this.setState(({ showModal }) => ({ showModal: !showModal }));
-	}
+			{images.length > 0 && status === 'success' && (
+				<Button onClick={handleClickLoadMoreBtn} />
+			)}
 
-	handleClickImg = img => {
-		this.handleToggleModal();
-		this.setState({ currentImage: img });
-	}
+			{status === 'loading' && <Loader />}
 
-	handleClickLoadMoreBtn = () => {
-		this.setState(prevState => ({
-			page: prevState.page + 1
-		}));
-	};
-
-	render() {
-		const { images, status, showModal, currentImage } = this.state;
-
-		return (
-			<div className="wrapper" >
-				<Searchbar onSubmit={this.handleSearch} />
-
-				{images.length > 0 && (
-					<ImageGallery onClick={this.handleClickImg} images={images} />
-				)}
-
-				{images.length > 0 && status === 'success' && (
-					<Button onClick={this.handleClickLoadMoreBtn} />
-				)}
-
-				{status === 'loading' && <Loader />}
-
-				{showModal && <Modal img={currentImage} onClose={this.handleToggleModal} />}
-			</div>
-		);
-	}
+			{showModal && <Modal img={currentImage} onClose={handleToggleModal} />}
+		</div>
+	);
 };

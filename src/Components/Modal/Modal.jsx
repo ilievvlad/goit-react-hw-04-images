@@ -1,47 +1,39 @@
-import { Component } from "react";
+import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 import { Modalka, Overlay } from "./Modal.styled";
 
-export class Modal extends Component {
+export const Modal = ({ img: { src, alt }, onClose }) => {
 
-	static propTypes = {
-		img: PropTypes.shape({
-			src: PropTypes.string.isRequired,
-			alt: PropTypes.string.isRequired,
-		}).isRequired,
-		onClose: PropTypes.func.isRequired
-	};
+	useEffect(() => {
+		const handleClickEsc = e => {
+			if (e.code === 'Escape') onClose();
+		};
 
-	componentDidMount() {
-		window.addEventListener('keydown', this.handleClickEsc);
+		window.addEventListener('keydown', handleClickEsc);
+
+		return () => {
+			window.removeEventListener('keydown', handleClickEsc);
+		};
+	}, [onClose]);
+
+	const handleClickBackdrop = e => {
+		if (e.target === e.currentTarget) onClose();
 	}
 
-	componentWillUnmount() {
-		window.removeEventListener('keydown', this.handleClickEsc);
-	}
+	return (
+		<Overlay onClick={handleClickBackdrop}>
+			<Modalka>
+				<img src={src} alt={alt} />
+			</Modalka>
+		</Overlay>
+	);
+};
 
-	handleClickEsc = e => {
-		if (e.code === 'Escape') {
-			this.props.onClose();
-		}
-	}
-
-	handleClickBackdrop = e => {
-		if (e.target === e.currentTarget) {
-			this.props.onClose();
-		}
-	}
-
-	render() {
-		const { img: { src, alt } } = this.props;
-
-		return (
-			<Overlay onClick={this.handleClickBackdrop}>
-				<Modalka>
-					<img src={src} alt={alt} />
-				</Modalka>
-			</Overlay>
-		);
-	}
+Modal.propTypes = {
+	img: PropTypes.shape({
+		src: PropTypes.string.isRequired,
+		alt: PropTypes.string.isRequired,
+	}).isRequired,
+	onClose: PropTypes.func.isRequired,
 };
